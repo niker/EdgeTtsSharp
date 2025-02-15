@@ -1,0 +1,32 @@
+﻿
+# dotNET Framework:
+/packages
+
+# dotNET Core
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.dbmdl
+*.jfm
+*.pfx
+*.publishsettings
+*.psess
+*.vsp
+*.vspx
+*.userprefs
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Visual Studio
+.vs/
+*.sln.docstates
+*.sln.ide/
+
+# Common files
+.DS_Store
+Thumbs.db
