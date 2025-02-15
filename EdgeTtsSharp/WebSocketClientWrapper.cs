@@ -98,7 +98,7 @@
 #if NETSTANDARD2_1
                         var rawData = buffer.AsMemory()[..result.Count].ToArray();
 #else
-                        var rawData = Enumerable.ToArray(new ArraySegment<byte>(buffer, 0, result.Count));
+                        var rawData = new ArraySegment<byte>(buffer, 0, result.Count).ToArray();
 #endif
                         await this.OnMessage(this, rawData);
                     }

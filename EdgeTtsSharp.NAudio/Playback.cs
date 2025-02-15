@@ -26,7 +26,7 @@ internal static class Playback
             Volume = volume
         };
 
-        using var directSoundOut = new DirectSoundOut();
+        var directSoundOut = new DirectSoundOut();
         directSoundOut.Init(volumeProvider.ToWaveProvider());
         directSoundOut.Play();
 

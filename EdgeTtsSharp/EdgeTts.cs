@@ -38,12 +38,12 @@ namespace EdgeTtsSharp
         /// <summary>
         /// Stream to target stream
         /// </summary>
-        public static async ValueTask StreamTo(this Voice voice,
-                                               Stream targetStream,
-                                               string text,
-                                               PlaybackSettings? playbackSettings,
-                                               Action? streamingFinished,
-                                               CancellationToken ct = default)
+        public static async Task StreamTo(this Voice voice,
+                                          Stream targetStream,
+                                          string text,
+                                          PlaybackSettings? playbackSettings,
+                                          Action? streamingFinished,
+                                          CancellationToken ct = default)
         {
             playbackSettings ??= new PlaybackSettings();
 
@@ -81,8 +81,9 @@ namespace EdgeTtsSharp
                             // are we positioned before the first chunk boundary?
                             if (endIndex == 0)
                             {
-                                eocIndex = FindSequenceIndex(incoming, EocSeq);
-                                eosIndex = FindSequenceIndex(incoming, EosSeq);
+                                // ignore the leading terminator sequence and try again
+                                eocIndex = FindSequenceIndex(incoming, EocSeq, terminatorLength);
+                                eosIndex = FindSequenceIndex(incoming, EosSeq, terminatorLength);
                                 continue;
                             }
 
@@ -131,6 +132,7 @@ namespace EdgeTtsSharp
                     try
                     {
                         await targetStream.FlushAsync(ct);
+                        incoming.Clear();
                         streamingFinished?.Invoke();
                     }
                     catch
@@ -178,7 +180,7 @@ namespace EdgeTtsSharp
         /// <summary>
         /// Save audio to a file
         /// </summary>
-        public static async ValueTask SaveAudioToFile(this Voice voice, string text, string path, PlaybackSettings? playbackSettings = null, CancellationToken ct = default)
+        public static async Task SaveAudioToFile(this Voice voice, string text, string path, PlaybackSettings? playbackSettings = null, CancellationToken ct = default)
         {
             var audioStream = voice.GetAudioStream(text, playbackSettings, ct);
 #if NETSTANDARD2_0
@@ -193,7 +195,7 @@ namespace EdgeTtsSharp
         /// <summary>
         /// Stream audio to a target stream
         /// </summary>
-        public static async ValueTask StreamText(this Voice voice, Stream targetStream, string text, PlaybackSettings? playbackSettings = null, CancellationToken ct = default)
+        public static async Task StreamText(this Voice voice, Stream targetStream, string text, PlaybackSettings? playbackSettings = null, CancellationToken ct = default)
         {
             var streaming = true;
             await voice.StreamTo(targetStream, text, playbackSettings, () => streaming = false, ct);
@@ -247,6 +249,16 @@ namespace EdgeTtsSharp
                 // process the line and determine the action to take according to the content
                 var chunkAction = ProcessLine(line);
 
+                // the action indicates we may be dealing with binary data
+                if (chunkAction == ChunkAction.BinaryCurrent)
+                {
+#if NETSTANDARD2_0
+                    await targetStream.WriteAsync(line.ToArray(), 0, line.Count, ct);
+#else
+                    await targetStream.WriteAsync(line.ToArray().AsMemory(), ct);
+#endif
+                }
+
                 // move the processed index to the start of the next line
                 processed = eolIndex + EolSeq.Length;
 
@@ -257,7 +269,7 @@ namespace EdgeTtsSharp
                 }
 
                 // if the action is to pass the binary data to the target stream, we can do that now
-                if (chunkAction == ChunkAction.Binary)
+                if (chunkAction == ChunkAction.BinaryFollows)
                 {
 #if NETSTANDARD2_0
                     await targetStream.WriteAsync(chunk.ToArray(), processed, chunk.Count - processed, ct);
@@ -295,7 +307,7 @@ namespace EdgeTtsSharp
             if (FindSequenceIndex(line, PathAudioSeq) != -1)
             {
                 // audio path marks beginning of binary data
-                return ChunkAction.Binary;
+                return ChunkAction.BinaryFollows;
             }
 
             if (FindSequenceIndex(line, PathResponseSeq) != -1)
@@ -316,7 +328,10 @@ namespace EdgeTtsSharp
                 return ChunkAction.Drop;
             }
 
-            throw new Exception($"Unknown line type: [{Encoding.UTF8.GetString(line.ToArray())}]");
+            // we didn't recognize any known header
+            // this may be a binary partial chunk or transport error
+            // we will pipe it to output just in case
+            return ChunkAction.BinaryCurrent;
         }
 
         /// <summary>

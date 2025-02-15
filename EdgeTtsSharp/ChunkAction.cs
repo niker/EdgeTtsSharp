@@ -4,5 +4,6 @@ internal enum ChunkAction
 {
     None,
     Drop,
-    Binary
+    BinaryFollows,
+    BinaryCurrent
 }
