@@ -1,6 +1,7 @@
 ﻿namespace EdgeTtsSharp
 {
     using System;
+    using System.Linq;
     using System.Net.WebSockets;
     using System.Text;
     using System.Threading;
@@ -26,7 +27,9 @@
             {
                 Options =
                 {
+#if NETSTANDARD2_1
                     RemoteCertificateValidationCallback = (_, _, _, _) => true
+#endif
                 }
             };
 
@@ -67,7 +70,11 @@
         public async ValueTask Send(string msg)
         {
             var messageBuffer = Encoding.UTF8.GetBytes(msg);
+#if NETSTANDARD2_1
             await this.WebSocket.SendAsync(messageBuffer.AsMemory(), WebSocketMessageType.Text, true, this.CancelToken);
+#else
+            await this.WebSocket.SendAsync(new ArraySegment<byte>(messageBuffer), WebSocketMessageType.Text, true, this.CancelToken);
+#endif
         }
 
         private async ValueTask ReceiveMessages(CancellationToken ct)
@@ -77,14 +84,22 @@
                 var buffer = new byte[1024 * 4];
                 while ((this.WebSocket.State == WebSocketState.Open) && !ct.IsCancellationRequested)
                 {
+#if NETSTANDARD2_1
                     var result = await this.WebSocket.ReceiveAsync(buffer.AsMemory(), this.CancelToken);
+#else
+                    var result = await this.WebSocket.ReceiveAsync(new ArraySegment<byte>(buffer), this.CancelToken);
+#endif
                     if (result.MessageType == WebSocketMessageType.Close)
                     {
                         await this.Close();
                     }
                     else
                     {
+#if NETSTANDARD2_1
                         var rawData = buffer.AsMemory()[..result.Count].ToArray();
+#else
+                        var rawData = Enumerable.ToArray(new ArraySegment<byte>(buffer, 0, result.Count));
+#endif
                         await this.OnMessage(this, rawData);
                     }
                 }

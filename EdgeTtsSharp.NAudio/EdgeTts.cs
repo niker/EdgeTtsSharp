@@ -18,7 +18,11 @@ public static class EdgeTtsWindowsPlayback
     {
         var audioStream = voice.GetAudioStream(text, playbackSettings, ct);
         using var ms = new MemoryStream();
-        await audioStream.CopyToAsync(ms, ct);
+#if NETSTANDARD2_0
+        await audioStream.CopyToAsync(ms, 81920, ct);
+#else
+                await audioStream.CopyToAsync(ms, ct);
+#endif
         playbackSettings ??= new PlaybackSettings();
         await Playback.PlayStream(ms, playbackSettings.Volume, playbackSettings.Rate, ct);
     }

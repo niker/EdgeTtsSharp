@@ -103,7 +103,11 @@ public class BufferedAudioStream : Stream
         return await this.WriteLock.Lock(async () =>
         {
             this.Content.Position = this.ReadPos;
+#if NETSTANDARD2_0
+            var read = await this.Content.ReadAsync(buffer, offset, count, cancellationToken);
+#else
             var read = await this.Content.ReadAsync(buffer.AsMemory(offset, count), cancellationToken);
+#endif
             this.ReadPos = this.Content.Position;
             return read;
         });
@@ -152,16 +156,32 @@ public class BufferedAudioStream : Stream
             }
 
             this.Content.Position = this.WritePos;
+#if NETSTANDARD2_0
+            await this.Content.WriteAsync(buffer, offset, count, cancellationToken);
+#else
             await this.Content.WriteAsync(buffer.AsMemory(offset, count), cancellationToken);
+#endif
             this.WritePos = this.Content.Position;
         });
     }
 
-    /// <inheritdoc />
-    public override ValueTask DisposeAsync()
+#if NETSTANDARD2_0
+    /// <summary>
+    /// Dispose asynchronously.
+    /// </summary>
+    public ValueTask DisposeAsync()
     {
         this.Content.Dispose();
         this.WriteCompleted = true;
-        return base.DisposeAsync();
+        return new ValueTask(Task.CompletedTask);
     }
+#else
+    /// <inheritdoc />
+    public override async ValueTask DisposeAsync()
+    {
+        await this.Content.DisposeAsync();
+        this.WriteCompleted = true;
+        await base.DisposeAsync();
+    }
+#endif
 }

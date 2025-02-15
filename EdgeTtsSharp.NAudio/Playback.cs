@@ -11,7 +11,11 @@ internal static class Playback
 {
     public static async ValueTask PlayStream(Stream stream, float volume = 1f, float speed = 0f, CancellationToken ct = default)
     {
+#if NETSTANDARD2_0
+        using var reader = new StreamMediaFoundationReader(stream);
+#else
         await using var reader = new StreamMediaFoundationReader(stream);
+#endif
         var sampleProvider = new SmbPitchShiftingSampleProvider(reader.ToSampleProvider())
         {
             PitchFactor = (float)Math.Pow(2.0, speed / 100.0)

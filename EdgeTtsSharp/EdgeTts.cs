@@ -97,7 +97,11 @@ namespace EdgeTtsSharp
                             if (!SequenceStartsWith(terminationSequenceContinuation, DropChunkBoundarySeq) && (eosIndex == -1))
                             {
                                 // this is not a real chunk boundary but part of the binary data, so we need to retain the terminator
-                                await targetStream.WriteAsync(EocSeq, ct);
+#if NETSTANDARD2_0
+                                await targetStream.WriteAsync(EocSeq, 0, EocSeq.Length, ct);
+#else
+                                await targetStream.WriteAsync(EocSeq.AsMemory(), ct);
+#endif
                             }
 
                             // check if we have reached the end of the stream
@@ -177,8 +181,13 @@ namespace EdgeTtsSharp
         public static async ValueTask SaveAudioToFile(this Voice voice, string text, string path, PlaybackSettings? playbackSettings = null, CancellationToken ct = default)
         {
             var audioStream = voice.GetAudioStream(text, playbackSettings, ct);
+#if NETSTANDARD2_0
+            using var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
+            await audioStream.CopyToAsync(fs, 81920, ct);
+#else
             await using var fs = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
             await audioStream.CopyToAsync(fs, ct);
+#endif
         }
 
         /// <summary>
@@ -222,7 +231,11 @@ namespace EdgeTtsSharp
             if (eolIndex == -1)
             {
                 // this is the last line or blob of pure binary data
+#if NETSTANDARD2_0
+                await targetStream.WriteAsync(chunk.ToArray(), 0, chunk.Count, ct);
+#else
                 await targetStream.WriteAsync(chunk.ToArray().AsMemory(0, chunk.Count), ct);
+#endif
             }
 
             // process the chunk line by line
@@ -246,7 +259,11 @@ namespace EdgeTtsSharp
                 // if the action is to pass the binary data to the target stream, we can do that now
                 if (chunkAction == ChunkAction.Binary)
                 {
+#if NETSTANDARD2_0
+                    await targetStream.WriteAsync(chunk.ToArray(), processed, chunk.Count - processed, ct);
+#else
                     await targetStream.WriteAsync(chunk.ToArray().AsMemory(processed, chunk.Count - processed), ct);
+#endif
                     return;
                 }
 
