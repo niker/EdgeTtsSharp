@@ -63,7 +63,15 @@
 
         public async ValueTask Close()
         {
-            await this.WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", this.CancelToken);
+            try
+            {
+                await this.WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Closing", this.CancelToken);
+            }
+            catch
+            {                
+                // ignore
+            }
+
             await this.OnClose();
         }
 

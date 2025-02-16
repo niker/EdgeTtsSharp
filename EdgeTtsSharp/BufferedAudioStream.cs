@@ -184,4 +184,12 @@ public class BufferedAudioStream : Stream
         await base.DisposeAsync();
     }
 #endif
+
+    /// <inheritdoc />
+    protected override void Dispose(bool disposing)
+    {
+        this.Content.Dispose();
+        this.WriteCompleted = true;
+        base.Dispose(disposing);
+    }
 }

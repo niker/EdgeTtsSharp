@@ -25,7 +25,6 @@ namespace EdgeTtsSharp
         private static readonly byte[] ContentTypeSeq = "Content-Type:"u8.ToArray();
         private static readonly byte[] StreamIdSeq = "X-StreamId:"u8.ToArray();
         private static readonly byte[] PathAudioSeq = "Path:audio"u8.ToArray();
-        private static readonly byte[] DropChunkBoundarySeq = [0x00, 0x80, 0x58, 0x2D];
         private static readonly byte[] PathResponseSeq = "Path:response"u8.ToArray();
         private static readonly byte[] PathTurnEndSeq = "Path:turn.end"u8.ToArray();
         private static readonly byte[] PathTurnStartSeq = "Path:turn.start"u8.ToArray();
@@ -57,13 +56,13 @@ namespace EdgeTtsSharp
                     try
                     {
                         incoming.AddRange(data);
-
+                        
                         // find first occurence of any terminator sequence in the incoming list,
                         // isolate a single candidate chunk and repeat until we have no valid chunks left
                         // or we reach the stream terminator
-                        var eocIndex = FindSequenceIndex(incoming, EocSeq);
+                        var eocIndex = FindSequenceIndex(incoming, RequestIdSeq);
                         var eosIndex = FindSequenceIndex(incoming, EosSeq);
-                        if ((eocIndex == -1) && (eosIndex == -1)) // eoc not found yet and not the end of stream
+                        if ((eocIndex == -1) && (eosIndex == -1)) // next chunk not found yet and not the end of stream
                         {
                             return;
                         }
@@ -71,18 +70,29 @@ namespace EdgeTtsSharp
                         while ((eocIndex != -1) || (eosIndex != -1))
                         {
                             // aggregate information about the terminator sequence
-                            var endIndex = Math.Max(eocIndex, eosIndex);
-                            var terminatorLength = eocIndex == -1 ? EosSeq.Length : EocSeq.Length;
-
-                            // check the data immediately following the terminator sequence
-                            // to determine if it is part of the binary data or a chunk boundary
-                            var terminationSequenceContinuation = incoming.Skip(endIndex).Take(Math.Min(DropChunkBoundarySeq.Length, incoming.Count - endIndex)).ToList();
+                            int endIndex;
+                            int terminatorLength;
+                            if (eocIndex == -1)
+                            {
+                                endIndex = eosIndex;
+                                terminatorLength = EosSeq.Length;
+                            }
+                            else if (eosIndex == -1)
+                            {
+                                endIndex = eocIndex;
+                                terminatorLength = 0;
+                            }
+                            else
+                            {
+                                endIndex = Math.Min(eocIndex, eosIndex);
+                                terminatorLength = eocIndex < eosIndex ? 0 : EosSeq.Length;
+                            }
 
                             // are we positioned before the first chunk boundary?
                             if (endIndex == 0)
                             {
                                 // ignore the leading terminator sequence and try again
-                                eocIndex = FindSequenceIndex(incoming, EocSeq, terminatorLength);
+                                eocIndex = FindSequenceIndex(incoming, RequestIdSeq, 1);
                                 eosIndex = FindSequenceIndex(incoming, EosSeq, terminatorLength);
                                 continue;
                             }
@@ -91,29 +101,25 @@ namespace EdgeTtsSharp
                             var chunk = incoming.Take(endIndex).ToList();
                             incoming.RemoveRange(0, endIndex + terminatorLength);
 
-                            // process the chunk, parse any text and pass binary data to the target stream
-                            await ProcessChunk(chunk, targetStream, ct);
-
-                            // if the terminator sequence is not a chunk boundary, we need to retain it
-                            if (!SequenceStartsWith(terminationSequenceContinuation, DropChunkBoundarySeq) && (eosIndex == -1))
+                            // if the chunk ends with EocSeq, we need to remove the terminator sequence
+                            if (SequenceEndsWith(chunk, EocSeq))
                             {
-                                // this is not a real chunk boundary but part of the binary data, so we need to retain the terminator
-#if NETSTANDARD2_0
-                                await targetStream.WriteAsync(EocSeq, 0, EocSeq.Length, ct);
-#else
-                                await targetStream.WriteAsync(EocSeq.AsMemory(), ct);
-#endif
+                                chunk.RemoveRange(chunk.Count - EocSeq.Length, EocSeq.Length);
                             }
 
+                            // process the chunk, parse any text and pass binary data to the target stream
+                            await ProcessChunk(chunk, targetStream, ct);
+                            await targetStream.FlushAsync(ct);
+
                             // check if we have reached the end of the stream
-                            if (eosIndex != -1)
+                            if ((eosIndex != -1) && (eocIndex != -1) && (eosIndex < eocIndex))
                             {
                                 await ws.Close();
                                 return;
                             }
 
                             // find the next terminator sequence
-                            eocIndex = FindSequenceIndex(incoming, EocSeq);
+                            eocIndex = FindSequenceIndex(incoming, RequestIdSeq);
                             eosIndex = FindSequenceIndex(incoming, EosSeq);
                         }
 
@@ -157,14 +163,14 @@ namespace EdgeTtsSharp
         /// <summary>
         /// Get a stream that contains the audio
         /// </summary>
-        public static PipedAudioStream.Reader GetAudioStream(this Voice voice, string text, PlaybackSettings? playbackSettings = null, CancellationToken ct = default)
+        public static BufferedAudioStream GetAudioStream(this Voice voice, string text, PlaybackSettings? playbackSettings = null, CancellationToken ct = default)
         {
-            var pipeStream = new PipedAudioStream();
+            var pipeStream = new BufferedAudioStream();
             _ = Task.Run(async () =>
                          {
                              try
                              {
-                                 await voice.StreamTo(pipeStream, text, playbackSettings, () => pipeStream.Complete(), ct);
+                                 await voice.StreamTo(pipeStream, text, playbackSettings, () => pipeStream.Close(), ct);
                              }
                              catch (Exception ex)
                              {
@@ -173,7 +179,7 @@ namespace EdgeTtsSharp
                          },
                          ct);
 
-            return pipeStream.GetReader();
+            return pipeStream;
         }
 
 
@@ -374,6 +380,27 @@ namespace EdgeTtsSharp
             for (var i = 0; i < pattern.Length; i++)
             {
                 if (data[startIndex + i] != pattern[i])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Check if a sequence ends with a pattern
+        /// </summary>
+        private static bool SequenceEndsWith(List<byte> data, byte[] pattern)
+        {
+            if (data.Count < pattern.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < pattern.Length; i++)
+            {
+                if (data[(data.Count - pattern.Length) + i] != pattern[i])
                 {
                     return false;
                 }
