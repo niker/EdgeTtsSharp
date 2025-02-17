@@ -2,12 +2,12 @@
 
     <PropertyGroup>
         <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
-        <Version>2.0.3</Version>
+        <Version>2.0.5</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Title>EdgeTtsSharp</Title>
         <Authors>NIKER</Authors>
-        <Description>Library for interfacing with Microsoft EdgeTTS service heavily inspired by Entity-Now/Edge_tts_sharp. This library uses direct streaming under the hood and is able to start playing audio immediatelly before the download is completed. It provides an audio stream or can write directly into 3rd party stream (like HTTP reponse).</Description>
+        <Description>Library for interfacing with Microsoft EdgeTTS service inspired by Entity-Now/Edge_tts_sharp. This library uses direct streaming under the hood and is able to start playing audio immediatelly before the download is completed. It provides an audio stream or can write directly into 3rd party stream (like HTTP reponse).</Description>
         <PackageProjectUrl>https://github.com/niker/EdgeTtsSharp</PackageProjectUrl>
         <PackageIcon>icon.png</PackageIcon>
         <RepositoryUrl>https://github.com/niker/EdgeTtsSharp</RepositoryUrl>
@@ -30,11 +30,21 @@
             <PackagePath></PackagePath>
         </None>
     </ItemGroup>
-
+    
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
         <PackageOutputPath>$(MSBuildThisFileDirectory)..\CompiledPackages</PackageOutputPath>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <NoWarn>1701;1702;1591</NoWarn>
     </PropertyGroup>
+
+    <PropertyGroup>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\LICENSE" Pack="true" PackagePath="" />
+        <None Include="..\README.md" Pack="true" PackagePath="" />
+    </ItemGroup>
 
 </Project>

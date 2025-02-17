@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>netstandard2.0;netstandard2.1</TargetFrameworks>
-        <Version>2.0.3</Version>
+        <Version>2.0.5</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <Title>EdgeTtsSharp.NAudio</Title>
@@ -30,14 +30,24 @@
         </None>
     </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\EdgeTtsSharp\EdgeTtsSharp.csproj"/>
-    </ItemGroup>
-
     <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
         <PackageOutputPath>$(MSBuildThisFileDirectory)..\CompiledPackages</PackageOutputPath>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <NoWarn>1701;1702;1591</NoWarn>
     </PropertyGroup>
+    
+    <PropertyGroup>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\LICENSE" Pack="true" PackagePath="" />
+        <None Include="..\README.md" Pack="true" PackagePath="" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\EdgeTtsSharp\EdgeTtsSharp.csproj" />
+    </ItemGroup>
 
 </Project>
