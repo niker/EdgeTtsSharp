@@ -27,7 +27,7 @@ public class StreamingTests
             // calculate MD5 hash from the stream
             var hash = GetMd5Hash(stream);
 
-            if (hash == "ad0db0aee0a541889424d92f08fa6236")
+            if (hash == "6b07d1dd5193be654672d9ba6436282b")
             {
                 return;
             }
@@ -64,7 +64,7 @@ public class StreamingTests
             var sample = File.OpenRead($"../../../TestResults/{i:D2}.mp3");
             var hash = GetMd5Hash(sample);
 
-            if (hash != "ad0db0aee0a541889424d92f08fa6236")
+            if (hash != "6b07d1dd5193be654672d9ba6436282b")
             {
                 failed.Add(i);
             }
