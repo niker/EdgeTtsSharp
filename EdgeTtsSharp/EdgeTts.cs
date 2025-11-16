@@ -413,14 +413,21 @@ namespace EdgeTtsSharp
         {
             // see: https://github.com/STBBRD/EdgeTTS_dotNET_Framework/
             // see: https://github.com/rany2/edge-tts/issues/290#issuecomment-2464956570
-            var ticks = (DateTime.UtcNow.Ticks / 3_000_000_000) * 3_000_000_000;
+
+            // 1. Use ToFileTimeUtc() which is based on the 1601 epoch.
+            var ticks = DateTime.Now.ToFileTimeUtc();
+
+            // 2. The modulo logic is mathematically identical to the original's division/multiplication.
+            ticks -= ticks % 3_000_000_000;
+            
             var str = $"{ticks}6A5AA1D4EAFF4E9FB37E23D68491D6F4";
             return ToHexString(HashData(Encoding.ASCII.GetBytes(str)));
         }
 
         private static string ToHexString(byte[] byteArray)
         {
-            return string.Concat(byteArray.Select(b => b.ToString("x2")));
+            // Use BitConverter to get an UPPERCASE hex string, which the server expects.
+            return BitConverter.ToString(byteArray).Replace("-", "").ToUpper();
         }
 
         private static byte[] HashData(byte[] data)
