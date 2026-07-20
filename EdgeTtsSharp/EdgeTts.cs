@@ -28,6 +28,8 @@ namespace EdgeTtsSharp
         private static readonly byte[] PathResponseSeq = "Path:response"u8.ToArray();
         private static readonly byte[] PathTurnEndSeq = "Path:turn.end"u8.ToArray();
         private static readonly byte[] PathTurnStartSeq = "Path:turn.start"u8.ToArray();
+        private const string ChromiumVersion = "143.0.3650.75";
+
 
         /// <summary>
         /// When a communication or processing error occurs, this action is called
@@ -50,7 +52,7 @@ namespace EdgeTtsSharp
             var incoming = new List<byte>();
 
             var wss = new WebSocketClientWrapper(
-                $"wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4&Sec-MS-GEC={GenerateSecMsGecToken()}&Sec-MS-GEC-Version=1-130.0.2849.68",
+                $"wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=6A5AA1D4EAFF4E9FB37E23D68491D6F4&Sec-MS-GEC={GenerateSecMsGecToken()}&Sec-MS-GEC-Version=1-{ChromiumVersion}",
                 async (ws, data) =>
                 {
                     try
@@ -153,8 +155,18 @@ namespace EdgeTtsSharp
                         await ErrorAction(ex);
                     }
                 },
+                new Dictionary<string, string>
+                {
+                    { "User-Agent", $"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{ChromiumVersion} Safari/537.36 Edg/{ChromiumVersion}" },
+                    { "Accept-Language", "en-US,en;q=0.9" },
+                    { "Pragma", "no-cache" },
+                    { "Cache-Control", "no-cache" },
+                    { "Origin", "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold" },
+                    { "Accept", "*/*" }
+                },
                 ct);
 
+            
             await wss.Connect();
             await wss.Send(CreateAudioFormatRequest(voice.SuggestedCodec));
             await wss.Send(CreateSsmlRequest(sendRequestId, voice.Locale, voice.Name, playbackSettings.Rate, (int)playbackSettings.Volume * 100, text));

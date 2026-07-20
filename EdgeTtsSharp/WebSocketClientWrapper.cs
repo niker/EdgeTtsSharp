@@ -1,6 +1,7 @@
 ﻿namespace EdgeTtsSharp
 {
     using System;
+    using System.Collections.Generic;
     using System.Linq;
     using System.Net.WebSockets;
     using System.Text;
@@ -20,6 +21,7 @@
                                       Func<WebSocketClientWrapper, byte[], ValueTask> onMessage,
                                       Func<ValueTask> onClose,
                                       Func<Exception, ValueTask>? onError = null,
+                                      Dictionary<string, string>? headers = null,
                                       CancellationToken ct = default)
         {
             this.Uri = new Uri(url);
@@ -32,6 +34,14 @@
 #endif
                 }
             };
+
+            if (headers != null)
+            {
+                foreach (var header in headers)
+                {
+                    this.WebSocket.Options.SetRequestHeader(header.Key, header.Value);
+                }
+            }
 
             this.OnMessage = onMessage;
             this.OnClose = onClose;
